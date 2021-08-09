@@ -153,12 +153,18 @@ def _channel_find(voiceChannel):
 
 # チャンネル作成時の権限リストを返す
 def _init_overwrites(guild, member):
+    
+    # 全体的にデフォルトのユーザーはメッセージが見れないように
     overwrites = {
-        # デフォルトのユーザーはメッセージを見れないように
-        guild.default_role: discord.PermissionOverwrite(read_messages=False),
-        # 参加したメンバーは見ることができるように
-        member: discord.PermissionOverwrite(read_messages=True)
+        guild.default_role:discord.PermissionOverwrite(read_messages=False)
     }
+
+    # 参加するメンバーはメッセージが見れるように（オーナー以外）※オーナーに対しては、権限操作できずエラーになるので。
+    if member != guild.owner:
+        member_role = {
+            member: discord.PermissionOverwrite(read_messages=True)
+        }
+        overwrites.update(member_role)
     
     # BOTが見れるように
     bots_role = discord.utils.get(guild.roles, name=BOT_NAME)
