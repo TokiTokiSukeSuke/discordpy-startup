@@ -1,21 +1,229 @@
+import discord
 from discord.ext import commands
 import os
 import traceback
 
-bot = commands.Bot(command_prefix='/')
-token = os.environ['DISCORD_BOT_TOKEN']
+# 用意したBOTのトークン
+DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN']
+
+# ディスコードAPI を生成
+client = discord.Client()
+
+# 本BOTの名前
+BOT_NAME = "創造ちゃんと破滅くん"
+# テキストチャンネルにデフォルトで
+CHANNEL_PREFIX = "の部屋_"
+# botたちのロール名 (botはテキストチャンネルに参加していてほしい)
+BOT_ROLE_NAME = "Bot"
+# 該当カテゴリに存在する部屋が対象
+TGT_CATEGORY_NAME = "CREATION AND RUIN CATEGORY"
+# 複製した部屋の名前(最大75桁)_新部屋ID_基部屋ID
+CREATEROOM_NAME = "CreateRoom_"
+
+#コマンド
+CMD_ROOMNAME_CHANGE = "/car_rnc "
+
+# 実行した際にログインされたかを確認 及び 初期化処理
+@client.event
+async def on_ready():
+    print('Logged in as')
+    print(client.user.name)
+    print(client.user.id)
+    print('------')
 
 
-@bot.event
-async def on_command_error(ctx, error):
-    orig_error = getattr(error, "original", error)
-    error_msg = ''.join(traceback.TracebackException.from_exception(orig_error).format())
-    await ctx.send(error_msg)
+# テキストチャットに変更があった場合
+@client.event
+async def on_message(message):
+
+    # カテゴリ内でなければ無視。
+    tgtCategoryCh = client.get_channel(message.channel.category_id)
+    if tgtCategoryCh.name.upper() != TGT_CATEGORY_NAME: return
+
+    # 当ボットが発信した場合は無視。
+    if client.user == message.author: return
+
+    # 部屋名の変更(部屋名 + ボイスチャンネルIDで紐づけ)
+    if message.content.startswith(CMD_ROOMNAME_CHANGE):
+
+        # テキストチャット部屋名から紐づくボイスチャットを探す
+        voiceChatRoom = discord.utils.get(message.guild.voice_channels, id=int(str(message.channel.name)[-18:]))
+
+        # メッセージ発信者のIDと部屋名のIDが一致しない場合は、変更できない！
+        if str(message.author.id) != str(voiceChatRoom.name)[-18:]: 
+
+            # 変更できない旨、発信して処理終了。
+            await message.channel.send("部屋の作成者が"+str(message.author.name)+"様でない為、部屋名の変更が出来ません。")
+            return
+        
+        # 変更後の部屋名を取得
+        strChangeName = message.content[(len(CMD_ROOMNAME_CHANGE)-1):]
+
+        # 部屋名の文字数制限
+        if len(strChangeName) > 75:
+            await message.channel.send("部屋名の文字数は、75文字以内で設定して下さい。")
+            return
+        
+        # 問題なければ、ボイス及びテキストの部屋名の変更を行う。
+        await message.channel.edit(name=strChangeName+str(message.channel.name)[-22:])
+        await voiceChatRoom.edit(name=strChangeName+str(voiceChatRoom.name)[-22:])
+        await message.channel.send("部屋名の変更を行いました。")
 
 
-@bot.command()
-async def ping(ctx):
-    await ctx.send('pong')
+# ボイスチャンネルの状態が変化した時に実行(対象者、前状態、後状態)
+@client.event
+async def on_voice_state_update(member, before, after):
+
+    # チャンネルを移動していない場合に処理をしない。
+    # ※ミュートなどでもステータスが変わる為。
+    if before.channel == after.channel: return
+
+    # チャンネルから退出した場合
+    if before.channel is not None:
+        
+        # 前まで入っていたボイスのカテゴリを退出した部屋が存在するカテゴリのIDで取得
+        tgtCategoryCh = client.get_channel(before.channel.category_id)
+        
+        # 該当カテゴリ内であれば続行
+        if tgtCategoryCh.name.upper() == TGT_CATEGORY_NAME:
+
+            # 退出した部屋が複製用の部屋でなければ
+            if before.channel != tgtCategoryCh.voice_channels[0]:
+            
+                # ボイスチャンネルに誰もいない場合
+                if len(before.channel.members) == 0:
+                    
+                    # テキストチャンネルを削除
+                    await _channel_delete(before.channel)
+
+                    # ボイスチャンネルを削除
+                    await before.channel.delete()
+
+                else:
+                    
+                    # テキストチャンネルを見えなくする
+                    await _channel_exit(member, before.channel)
 
 
-bot.run(token)
+    # チャンネルに入質した場合
+    if after.channel is not None:
+        
+        # 今から入るボイスのカテゴリを入室する部屋が存在するカテゴリのIDで取得
+        tgtCategoryCh = client.get_channel(after.channel.category_id)
+
+        # 該当カテゴリ内であれば、続行
+        if tgtCategoryCh.name.upper() == TGT_CATEGORY_NAME:
+
+            # 複製用の部屋に入った時のみ部屋の複製を行い、終了する。
+            if after.channel == tgtCategoryCh.voice_channels[0]:
+
+                # 部屋の複製(部屋名_メンバーID)
+                await tgtCategoryCh.voice_channels[0].clone(
+                    name=member.name + CHANNEL_PREFIX + str(member.id),reason=None)
+
+                # メンバーを複製した部屋に移動
+                await member.move_to(tgtCategoryCh.voice_channels[-1],reason=None)
+                
+            # 複製の部屋でなければ、テキストチャンネル権限対応。
+            else:
+                
+                # 一人目の場合
+                if len(after.channel.members) == 1:
+
+                    # 専用テキストチャンネルの作成(部屋名_ボイス部屋ID)
+                    await _channel_create(member, after.channel)
+
+                # そうでない場合
+                else:
+                    
+                    # 既にテキストがある為、テキストチャットへ参加させる。
+                    await _channel_join(member, after.channel)
+
+            # 入場時にメンションでテキストチャンネルへ案内
+            # await _channel_send_join(member, after.channel)
+
+
+# テキストチャンネルを検索する関数
+def _channel_find(voiceChannel):
+    text_channels = voiceChannel.guild.text_channels
+    channel_name = str(voiceChannel.name)[:-18]+str(voiceChannel.id)[-18:]
+    # 名前からチャンネルオブジェクトを取得する
+    return discord.utils.get(text_channels, name=channel_name)
+
+
+# チャンネル作成時の権限リストを返す
+def _init_overwrites(guild, member):
+    overwrites = {
+        # デフォルトのユーザーはメッセージを見れないように
+        guild.default_role: discord.PermissionOverwrite(read_messages=False),
+        # 参加したメンバーは見ることができるように
+        member: discord.PermissionOverwrite(read_messages=True)
+    }
+    
+    # BOTが見れるように
+    bots_role = discord.utils.get(guild.roles, name=BOT_NAME)
+    if bots_role is not None:
+        # Botもメッセージを見れるように
+        bot_overwrite = {
+            bots_role: discord.PermissionOverwrite(read_messages=True)
+        }
+        overwrites.update(bot_overwrite)
+
+    # BOTが見れるように
+    bots_role = discord.utils.get(guild.roles, name=BOT_ROLE_NAME)
+    if bots_role is not None:
+        # Botもメッセージを見れるように
+        bot_overwrite = {
+            bots_role: discord.PermissionOverwrite(read_messages=True)
+        }
+        overwrites.update(bot_overwrite)
+
+    return overwrites
+
+
+# テキストチャンネルを作成する関数
+async def _channel_create(member, voiceChannel):
+    guild = voiceChannel.guild
+
+    channel_name = member.name + CHANNEL_PREFIX + str(voiceChannel.id)
+    overwrites = _init_overwrites(guild, member)
+    category = voiceChannel.category
+
+    # テキストチャンネルを作成
+    await guild.create_text_channel(
+        channel_name, overwrites=overwrites, category=category)
+
+
+# テキストチャンネルを削除する関数
+async def _channel_delete(voiceChannel):
+    target = _channel_find(voiceChannel)
+    if target is not None:
+        await target.delete()
+
+
+# テキストチャンネルに参加させる関数
+async def _channel_join(member, voiceChannel):
+    target = _channel_find(voiceChannel)
+    if target is not None:
+        overwrites = discord.PermissionOverwrite(read_messages=True)
+        # 該当メンバーに読み取り権限を付与
+        await target.set_permissions(member, overwrite=overwrites)
+
+
+# テキストチャンネルから退出させる関数
+async def _channel_exit(member, voiceChannel):
+    target = _channel_find(voiceChannel)
+    if target is not None:
+        # 該当メンバーの読取権限を取り消し
+        await target.set_permissions(member, overwrite=None)
+
+
+# 入室時にメンションを飛ばして案内したい
+async def _channel_send_join(member, voiceChannel):
+    target = _channel_find(voiceChannel)
+    if target is not None:
+        await target.send(member.mention + "通話中のチャットはこちらをお使いください")
+
+
+# 設定されたTokenのボットへ動きを流し込む
+client.run(DISCORD_BOT_TOKEN)
