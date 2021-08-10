@@ -145,12 +145,12 @@ async def on_voice_state_update(member, before, after):
 
 # テキストチャンネルを検索する関数
 def _channel_find(voiceChannel):
+    # カテゴリを取得
     tgtCategoryCh = client.get_channel(voiceChannel.category_id)
     # カテゴリ内のテキストチャットを繰り返して探して、IDが一致した部屋を返す
     for tgtTextChannel in tgtCategoryCh.text_channels:
-        if str(tgtTextChannel.id)[-18:] == str(voiceChannel.id):
+        if str(tgtTextChannel.name)[-18:] == str(voiceChannel.id):
             return tgtTextChannel
-        
     return None
 
 
