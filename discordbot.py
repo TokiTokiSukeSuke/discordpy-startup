@@ -145,26 +145,25 @@ async def on_voice_state_update(member, before, after):
 
 # テキストチャンネルを検索する関数
 def _channel_find(voiceChannel):
-    text_channels = voiceChannel.guild.text_channels
-    channel_name = str(voiceChannel.name)[:-18]+str(voiceChannel.id)[-18:]
-    # 名前からチャンネルオブジェクトを取得する
-    return discord.utils.get(text_channels, name=channel_name)
+    tgtCategoryCh = client.get_channel(voiceChannel.category_id)
+    # カテゴリ内のテキストチャットを繰り返して探して、IDが一致した部屋を返す
+    for tgtTextChannel in tgtCategoryCh.text_channels:
+        if str(tgtTextChannel.id)[-18:] == str(voiceChannel.id):
+            return tgtTextChannel
+        
+    return None
 
 
 # チャンネル作成時の権限リストを返す
 def _init_overwrites(guild, member):
     
-    # 全体的にデフォルトのユーザーはメッセージが見れないように
+    # 参加するメンバーがオーナーの場合 元コード
     overwrites = {
-        guild.default_role:discord.PermissionOverwrite(read_messages=False)
+        # デフォルトのユーザーはメッセージを見れないように
+        guild.default_role:discord.PermissionOverwrite(read_messages=False),
+        # 参加したメンバーは見ることができるように
+        member: discord.PermissionOverwrite(read_messages=True)
     }
-
-    # 参加するメンバーはメッセージが見れるように（オーナー以外）※オーナーに対しては、権限操作できずエラーになるので。
-    if member != guild.owner:
-        member_role = {
-            member: discord.PermissionOverwrite(read_messages=True)
-        }
-        overwrites.update(member_role)
     
     # BOTが見れるように
     bots_role = discord.utils.get(guild.roles, name=BOT_NAME)
