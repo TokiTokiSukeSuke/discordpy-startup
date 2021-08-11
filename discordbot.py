@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import os
 import traceback
-import time
+# import time
 # from timeout_decorator import timeout, TimeoutError
 
 # 用意したBOTのトークン
