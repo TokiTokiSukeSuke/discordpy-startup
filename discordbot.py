@@ -38,38 +38,75 @@ async def on_ready():
 @client.event
 async def on_message(message):
 
+    # 当ボットが発信したコメントは無視。
+    if client.user == message.author: return
+
     # カテゴリ内でなければ無視。
     tgtCategoryCh = client.get_channel(message.channel.category_id)
     if tgtCategoryCh.name.upper() != TGT_CATEGORY_NAME: return
 
-    # 当ボットが発信した場合は無視。
-    if client.user == message.author: return
-
     # 部屋名の変更(部屋名 + ボイスチャンネルIDで紐づけ)
     if message.content.startswith(CMD_ROOMNAME_CHANGE):
-
+        
         # テキストチャット部屋名から紐づくボイスチャットを探す
-        voiceChatRoom = discord.utils.get(message.guild.voice_channels, id=int(str(message.channel.name)[-18:]))
+        voiceChatRoom = None
+        voiceChatId = str(message.channel.name)[-18:]
+        if voiceChatId.isdigit():
+            voiceChatRoom = discord.utils.get(message.guild.voice_channels, id=int(voiceChatId))
+
+
+        # 部屋が存在しない場合
+        if voiceChatRoom is None:
+            await message.channel.send("このテキストのボイスチャットが存在しません。")
+            return
+
+
+        # 部屋に人が存在しない場合
+        blnTgtMember = False
+        for member in voiceChatRoom.members:
+            if member.id == message.author.id:
+                blnTgtMember = True
+                break
+        
+        if blnTgtMember == False:
+            await message.channel.send(message.author.name+"様がこのテキストのボイスチャットに居ない為、変更できません。")
+            return
+
 
         # メッセージ発信者のIDと部屋名のIDが一致しない場合は、変更できない！
         if str(message.author.id) != str(voiceChatRoom.name)[-18:]: 
-
+            
             # 変更できない旨、発信して処理終了。
-            await message.channel.send("部屋の作成者が"+str(message.author.name)+"様でない為、部屋名の変更が出来ません。")
+            await message.channel.send("この部屋の作成者が"+message.author.name+"様でない為、部屋名の変更が出来ません。")
             return
         
+        
         # 変更後の部屋名を取得
-        strChangeName = message.content[(len(CMD_ROOMNAME_CHANGE)-1):]
+        strChangeName = message.content[(len(CMD_ROOMNAME_CHANGE)):]
 
         # 部屋名の文字数制限
         if len(strChangeName) > 75:
             await message.channel.send("部屋名の文字数は、75文字以内で設定して下さい。")
             return
         
-        # 問題なければ、ボイス及びテキストの部屋名の変更を行う。
-        await message.channel.edit(name=strChangeName+str(message.channel.name)[-22:])
-        await voiceChatRoom.edit(name=strChangeName+str(voiceChatRoom.name)[-22:])
-        await message.channel.send("部屋名の変更を行いました。")
+        # # 問題なければ、ボイス及びテキストの部屋名の変更を行う。
+        # strChangeVcName = strChangeName+str(voiceChatRoom.name)[-22:]
+        # strChangeTxName = strChangeName+str(message.channel.name)[-22:]
+        # await voiceChatRoom.edit(name=strChangeVcName)
+        # await message.channel.edit(name=strChangeTxName)
+
+        try:
+            await _channel_name_change(message.channel,voiceChatRoom,strChangeName)
+        except TimeoutError:
+            message.channel.send("部屋名変更失敗！時間を置いてから再度お願いします。")
+        
+
+# 部屋名の変
+@timeout(5)
+async def _channel_name_change(textChat,voiceChat,editName):
+    await textChat.edit(name=editName+str(textChat.name)[-22:])
+    await voiceChat.edit(name=editName+str(voiceChat.name)[-22:])
+    await textChat.send("部屋名変更完了！")
 
 
 # ボイスチャンネルの状態が変化した時に実行(対象者、前状態、後状態)
