@@ -98,7 +98,7 @@ async def on_message(message):
         try:
             await _channel_name_change(message.channel,voiceChatRoom,strChangeName)
         except TimeoutError:
-            message.channel.send("部屋名変更失敗！時間を置いてから再度お願いします。")
+            await message.channel.send("部屋名変更失敗！時間を置いてから再度お願いします。")
         
 
 # 部屋名の変
