@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 import os
 import traceback
-import wrapt_timeout_decorator
+import time
+from timeout_decorator import timeout, TimeoutError
 
 # 用意したBOTのトークン
 DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN']
