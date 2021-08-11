@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 import os
 import traceback
-import time
-from timeout_decorator import timeout, TimeoutError
+# import time
+# from timeout_decorator import timeout, TimeoutError
 
 # 用意したBOTのトークン
 DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN']
@@ -102,7 +102,7 @@ async def on_message(message):
         
 
 # 部屋名の変
-@timeout(5)
+# @timeout(5)
 async def _channel_name_change(textChat,voiceChat,editName):
     await textChat.edit(name=editName+str(textChat.name)[-22:])
     await voiceChat.edit(name=editName+str(voiceChat.name)[-22:])
