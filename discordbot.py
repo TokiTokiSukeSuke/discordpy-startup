@@ -102,6 +102,12 @@ async def on_message(message):
             await asyncio.wait_for(_channel_name_change(message.channel,voiceChatRoom,strChangeName), timeout=1.5)
         except asyncio.TimeoutError:
             await message.channel.send("部屋名の変更に失敗！時間を置いてもう一度試すか、部屋を作り直してください。")
+            
+            # タイムアウト確認中に人がいなくなっていた場合
+            if len(voiceChatRoom.members) == 0:
+                # チャンネルを削除
+                await _channel_delete(voiceChatRoom)
+                await voiceChatRoom.delete()
 
 # 部屋名の変更
 async def _channel_name_change(textChat,voiceChat,editName):
