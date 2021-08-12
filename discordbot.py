@@ -1,5 +1,5 @@
 import discord
-import asyncio
+# import asyncio
 
 # 用意したBOTのトークン
 DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN']
@@ -90,10 +90,12 @@ async def on_message(message):
         # strChangeTxName = strChangeName+str(message.channel.name)[-22:]
         # await voiceChatRoom.edit(name=strChangeVcName)
         # await message.channel.edit(name=strChangeTxName)
-        try:
-            await asyncio.wait_for(_channel_name_change(message.channel,voiceChatRoom,strChangeName), timeout=1.5)
-        except asyncio.TimeoutError:
-            await message.channel.send("部屋名の変更に失敗！時間を置いてもう一度試すか、部屋を作り直してください。")
+        
+        await _channel_name_change(message.channel,voiceChatRoom,strChangeName)
+        # try:
+        #     await asyncio.wait_for(_channel_name_change(message.channel,voiceChatRoom,strChangeName), timeout=1.5)
+        # except asyncio.TimeoutError:
+        #     await message.channel.send("部屋名の変更に失敗！時間を置いてもう一度試すか、部屋を作り直してください。")
 
 # 部屋名の変更
 async def _channel_name_change(textChat,voiceChat,editName):
