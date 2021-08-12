@@ -101,12 +101,17 @@ async def on_message(message):
             await message.channel.send("部屋名変更失敗！時間を置いてから再度お願いします。")
         
 
-# 部屋名の変
-@timeout(5)
+# 部屋名の変更
+# @timeout(5)
 async def _channel_name_change(textChat,voiceChat,editName):
-    await textChat.edit(name=editName+str(textChat.name)[-22:])
-    await voiceChat.edit(name=editName+str(voiceChat.name)[-22:])
-    await textChat.send("部屋名変更完了！")
+    async with timeout(3) as cm:
+        await textChat.edit(name=editName+str(textChat.name)[-22:])
+        await voiceChat.edit(name=editName+str(voiceChat.name)[-22:])
+    
+    if cm.expired == True:
+        await textChat.send("部屋名変更完了！")
+    else:
+        await textChat.send("部屋名変更失敗！時間を空けて再度お試しください。")
 
 
 # ボイスチャンネルの状態が変化した時に実行(対象者、前状態、後状態)
