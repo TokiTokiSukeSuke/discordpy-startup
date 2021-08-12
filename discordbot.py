@@ -6,7 +6,7 @@ import traceback
 from timeout_decorator import timeout, TimeoutError
 
 # 用意したBOTのトークン
-DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN']
+DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN Error']
 
 # ディスコードAPI を生成
 client = discord.Client()
