@@ -1,12 +1,8 @@
 import discord
-from discord.ext import commands
-import os
-import traceback
-# import time
-from timeout_decorator import timeout, TimeoutError
+import asyncio
 
 # 用意したBOTのトークン
-DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN Error']
+DISCORD_BOT_TOKEN = os.environ['DISCORD_BOT_TOKEN']
 
 # ディスコードAPI を生成
 client = discord.Client()
@@ -94,24 +90,16 @@ async def on_message(message):
         # strChangeTxName = strChangeName+str(message.channel.name)[-22:]
         # await voiceChatRoom.edit(name=strChangeVcName)
         # await message.channel.edit(name=strChangeTxName)
-
         try:
-            await _channel_name_change(message.channel,voiceChatRoom,strChangeName)
-        except TimeoutError:
-            await message.channel.send("部屋名変更失敗！時間を置いてから再度お願いします。")
-        
+            await asyncio.wait_for(_channel_name_change(message.channel,voiceChatRoom,strChangeName), timeout=1.5)
+        except asyncio.TimeoutError:
+            await message.channel.send("部屋名の変更に失敗！時間を置いてもう一度試すか、部屋を作り直してください。")
 
 # 部屋名の変更
-# @timeout(5)
 async def _channel_name_change(textChat,voiceChat,editName):
-    async with timeout(3) as cm:
-        await textChat.edit(name=editName+str(textChat.name)[-22:])
-        await voiceChat.edit(name=editName+str(voiceChat.name)[-22:])
-    
-    if cm.expired == True:
-        await textChat.send("部屋名変更完了！")
-    else:
-        await textChat.send("部屋名変更失敗！時間を空けて再度お試しください。")
+    await textChat.edit(name=editName+str(textChat.name)[-22:])
+    await voiceChat.edit(name=editName+str(voiceChat.name)[-22:])
+    await textChat.send("部屋名変更完了！")
 
 
 # ボイスチャンネルの状態が変化した時に実行(対象者、前状態、後状態)
